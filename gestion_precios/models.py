@@ -81,3 +81,64 @@ class CombinacionProducto(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.lista_precio.nombre})"
+    class PrecioArticulo(models.Model):
+    lista_precio = models.ForeignKey(ListaPrecio, on_delete=models.CASCADE, related_name='precios')
+    articulo = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='precios')
+    precio_base = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+
+    class Meta:
+        unique_together = ('lista_precio', 'articulo')
+
+    def __str__(self):
+        return f"{self.articulo.nombre} - {self.lista_precio.nombre}: S/ {self.precio_base}"
+    
+
+class ReglaPrecio(models.Model):
+    TIPO_REGLA_CHOICES = [
+        ('PORCENTAJE', 'Porcentaje de Descuento'),
+        ('MONTO_FIJO', 'Monto Fijo de Descuento'),
+    ]
+    CONDICION_CHOICES = [
+        ('CANTIDAD_MINIMA', 'Cantidad Mínima de Unidades'),
+        ('MONTO_MINIMO', 'Monto Mínimo de Pedido'),
+    ]
+
+    lista_precio = models.ForeignKey(ListaPrecio, on_delete=models.CASCADE, related_name='reglas')
+    nombre_regla = models.CharField(max_length=150)
+    tipo_regla = models.CharField(max_length=20, choices=TIPO_REGLA_CHOICES)
+    valor_regla = models.DecimalField(max_digits=10, decimal_places=2, help_text="El valor del descuento (ej. 10 para 10% o 5 para S/ 5.00)")
+    condicion = models.CharField(max_length=20, choices=CONDICION_CHOICES)
+    condicion_valor = models.DecimalField(max_digits=10, decimal_places=2, help_text="Valor a comparar (ej. 3 para 3 unidades, 100 para S/ 100.00)")
+    aplica_articulo = models.ForeignKey(
+        Articulo, 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True, 
+        help_text="Si se define, esta regla solo aplica a este artículo."
+    )
+    aplica_grupo = models.ForeignKey(
+        GrupoArticulo, 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True, 
+        help_text="Si se define, esta regla aplica a cualquier artículo de este grupo."
+    )
+    aplica_linea = models.ForeignKey(
+        LineaArticulo, 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True, 
+        help_text="Si se define, esta regla aplica a cualquier artículo de esta línea."
+    )
+    aplica_combinacion = models.ForeignKey(
+        CombinacionProducto, 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True, 
+        help_text="Si se define, esta regla aplica si la combinación de productos está presente."
+    )
+    prioridad = models.IntegerField(default=10, help_text="Menor número se aplica primero.")
+    permite_venta_bajo_costo = models.BooleanField(default=False, help_text="Si se marca, esta regla puede hacer que el precio final sea inferior al costo del artículo.")
+
+
+    class Meta:
+        ordering = ['prioridad']
+
+    def __str__(self):
+        return f"{self.nombre_regla} ({self.lista_precio.nombre})"
