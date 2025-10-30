@@ -99,7 +99,6 @@ class ObtenerListaVigenteAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        
 # --- AÑADE ESTA NUEVA CLASE ---
 class CalcularPrecioFinalAPIView(APIView):
     """
