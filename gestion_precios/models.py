@@ -81,7 +81,19 @@ class CombinacionProducto(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.lista_precio.nombre})"
-    class PrecioArticulo(models.Model):
+    
+    
+
+
+
+
+
+
+
+
+
+    
+class PrecioArticulo(models.Model):
     lista_precio = models.ForeignKey(ListaPrecio, on_delete=models.CASCADE, related_name='precios')
     articulo = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='precios')
     precio_base = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
@@ -142,3 +154,4 @@ class ReglaPrecio(models.Model):
 
     def __str__(self):
         return f"{self.nombre_regla} ({self.lista_precio.nombre})"
+
