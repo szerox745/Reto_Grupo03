@@ -47,4 +47,74 @@ class ReglaPrecioSerializer(serializers.ModelSerializer):
         required=False
     )
     # --- FIN DE LA SOLUCIÓN ---
+
+    def validate(self, data):
+        """
+        Validación personalizada para evitar solapamiento de vigencias.
+        """
+        # Obtenemos las fechas. Si no hay fecha fin, la tratamos como "infinito"
+        inicio = data.get('fecha_inicio_vigencia')
+        fin = data.get('fecha_fin_vigencia')
+
+        # Construimos el filtro base para listas que compiten
+        filtros_competencia = Q(empresa=data.get('empresa')) & \
+                              Q(sucursal=data.get('sucursal')) & \
+                              Q(canal_venta=data.get('canal_venta')) & \
+                              Q(activa=True)
+
+        # Lógica de solapamiento
+        # 1. Comprueba si la nueva lista "envuelve" a una existente
+        consulta_solapamiento = Q(fecha_inicio_vigencia__gte=inicio)
+        if fin:
+            consulta_solapamiento &= Q(fecha_fin_vigencia__lte=fin)
+        
+        # 2. Comprueba si la nueva lista "inicia durante" una existente
+        consulta_inicia_durante = Q(fecha_inicio_vigencia__lte=inicio)
+        if fin:
+             consulta_inicia_durante &= Q(fecha_fin_vigencia__gte=inicio)
+        else:
+            # Si la nueva lista no tiene fin, choca con cualquiera
+            # que no haya terminado antes de que esta empiece.
+             consulta_inicia_durante &= Q(fecha_fin_vigencia__gte=inicio) | Q(fecha_fin_vigencia__isnull=True)
+
+        # 3. Comprueba si la nueva lista "termina durante" una existente
+        consulta_termina_durante = Q(fecha_inicio_vigencia__isnull=False) # Solo aplica si la nueva tiene fin
+        if fin:
+            consulta_termina_durante = Q(fecha_inicio_vigencia__lte=fin) & \
+                                       (Q(fecha_fin_vigencia__gte=fin) | Q(fecha_fin_vigencia__isnull=True))
+        
+        filtros_solapamiento = Q(consulta_solapamiento | consulta_inicia_durante | consulta_termina_durante)
+
+        # Excluimos el objeto actual si estamos actualizando (PUT/PATCH)
+        instancia_actual = self.instance
+        query = ListaPrecio.objects.filter(filtros_competencia & filtros_solapamiento)
+        
+        if instancia_actual:
+            query = query.exclude(pk=instancia_actual.pk) # No te compares contigo mismo
+
+        if query.exists():
+            lista_existente = query.first()
+            raise serializers.ValidationError(
+                f"Las fechas se solapan con una lista de precios existente: "
+                f"'{lista_existente.nombre}' (ID: {lista_existente.id})"
+            )
+
+        return data
+    
+    
+# --- AÑADE ESTA NUEVA CLASE ---
+class ResultadoCalculoSerializer(serializers.Serializer):
+    """
+    Serializador para mostrar el resultado del cálculo de precios.
+    No se basa en un modelo, solo define la estructura de la respuesta.
+    """
+    lista_precio_aplicada = serializers.CharField()
+    precio_base = serializers.DecimalField(max_digits=10, decimal_places=2)
+    precio_final = serializers.DecimalField(max_digits=10, decimal_places=2)
+    cantidad = serializers.IntegerField()
+    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    reglas_aplicadas = serializers.ListField(child=serializers.CharField())
+    autorizado_bajo_costo = serializers.BooleanField()
+
+
     
