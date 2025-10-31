@@ -2,7 +2,6 @@ from .models import ListaPrecio, Articulo, PrecioArticulo, ReglaPrecio
 from decimal import Decimal
 from datetime import date
 from django.db.models import Q
-
 class PrecioService:
     """
     Clase que encapsula toda la lógica de negocio para el cálculo de precios.
@@ -62,5 +61,72 @@ class PrecioService:
         # Aseguramos que el artículo actual esté en el "carrito" para la lógica de combinación
         cart_items_set.add(articulo_id)
         
+        for regla in reglas:
+            
+            # ... (La verificación de aplicabilidad por articulo/grupo/linea se queda igual) ...
+            
+            # --- INICIO DE NUEVA LÓGICA DE COMBINACIÓN ---
+            
+            # Verificamos si la regla es de combinación
+            if regla.aplica_combinacion:
+                # 1. El artículo actual debe ser parte de la combinación
+                articulos_requeridos_ids = set(
+                    regla.aplica_combinacion.articulos.values_list('id', flat=True)
+                )
+                
+                if articulo_id not in articulos_requeridos_ids:
+                    continue # Esta regla de combinación no es para este artículo
+
+                # 2. Verificamos si todos los artículos de la combinación
+                #    están presentes en el carrito.
+                if not articulos_requeridos_ids.issubset(cart_items_set):
+                    # No están todos los artículos de la combinación en el carrito.
+                    continue
+            
+            # --- FIN DE NUEVA LÓGICA DE COMBINACIÓN ---
+
+            # --- Verificación de Condiciones de la Regla (CANTIDAD/MONTO) ---
+            condicion_cumplida = False
+
+            # Si la regla NO es de combinación, aplicamos lógica de cantidad/monto
+            if not regla.aplica_combinacion:
+                if regla.condicion == 'CANTIDAD_MINIMA':
+                    if cantidad >= regla.condicion_valor:
+                        condicion_cumplida = True
+                elif regla.condicion == 'MONTO_MINIMO':
+                    if monto_pedido >= regla.condicion_valor:
+                        condicion_cumplida = True
+            else:
+                # Si es una regla de combinación, la condición ya se cumplió
+                # (todos los productos están en el carrito).
+                condicion_cumplida = True
+
+            if not condicion_cumplida:
+                continue
+
+            # --- Si llegamos aquí, la regla SE APLICA ---
+            
+            # 1. Aplicamos el descuento
+            if regla.tipo_regla == 'PORCENTAJE':
+                descuento = precio_final * (regla.valor_regla / Decimal('100.0'))
+                precio_final -= descuento
+            elif regla.tipo_regla == 'MONTO_FIJO':
+                precio_final -= regla.valor_regla
+
+            # 2. Registramos la regla aplicada
+            reglas_aplicadas.append(regla.nombre_regla)
+
+            # 3. Verificamos si esta regla da permiso de venta bajo costo
+            if regla.permite_venta_bajo_costo:
+                permiso_venta_bajo_costo = True
+            
+            # 4. Evitamos precios negativos
+            if precio_final < Decimal('0.00'):
+                precio_final = Decimal('0.00')
+
+        # --- FIN DE LA LÓGICA DE REGLAS ---
+
+
+
 
 
