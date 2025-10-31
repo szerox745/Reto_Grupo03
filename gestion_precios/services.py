@@ -126,6 +126,79 @@ class PrecioService:
 
         # --- FIN DE LA LÓGICA DE REGLAS ---
 
+        # 3. Validación de Costo (Lógica Final)
+        autorizado_bajo_costo = False
+        if precio_final < ultimo_costo:
+            if permiso_venta_bajo_costo:
+                # El precio es bajo costo, PERO una regla aplicada lo autorizó.
+                autorizado_bajo_costo = True
+            else:
+                # El precio es bajo costo y NO tiene autorización.
+                # Se ajusta el precio al costo.
+                precio_final = ultimo_costo
+                reglas_aplicadas.append("Ajuste a costo mínimo (no autorizado bajo costo)")
+
+
+        # 4. Devolvemos el diccionario final
+        return {
+            "lista_precio_aplicada": lista_vigente.nombre,
+            "precio_base": precio_base,
+            "precio_final": precio_final,
+            "cantidad": cantidad,
+            "total": precio_final * cantidad,
+            "reglas_aplicadas": reglas_aplicadas,
+            "autorizado_bajo_costo": autorizado_bajo_costo
+        }
+
+
+    @staticmethod
+    def obtener_lista_vigente(empresa_id: int, canal_venta: str, sucursal_id: int = None):
+        """
+        Encuentra la lista de precios más específica y aplicable para una operación.
+        """
+        # ... (este método se queda exactamente como estaba)
+        hoy = date.today()
+
+        filtros_base = Q(empresa_id=empresa_id) & \
+                       Q(activa=True) & \
+                       Q(fecha_inicio_vigencia__lte=hoy) & \
+                       (Q(fecha_fin_vigencia__gte=hoy) | Q(fecha_fin_vigencia__isnull=True))
+
+        if sucursal_id:
+            lista = ListaPrecio.objects.filter(
+                filtros_base &
+                Q(sucursal_id=sucursal_id) &
+                Q(canal_venta=canal_venta)
+            ).first()
+            if lista:
+                return lista
+
+            lista = ListaPrecio.objects.filter(
+                filtros_base &
+                Q(sucursal_id=sucursal_id) &
+                Q(canal_venta='TODOS')
+            ).first()
+            if lista:
+                return lista
+
+        lista = ListaPrecio.objects.filter(
+            filtros_base &
+            Q(sucursal_id__isnull=True) &
+            Q(canal_venta=canal_venta)
+        ).first()
+        if lista:
+            return lista
+
+        lista = ListaPrecio.objects.filter(
+            filtros_base &
+            Q(sucursal_id__isnull=True) &
+            Q(canal_venta='TODOS')
+        ).first()
+        if lista:
+            return lista
+
+        return None
+
 
 
 
