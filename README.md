@@ -182,3 +182,41 @@ Se limpia el catálogo antes de recargar datos para garantizar consistencia.
   añade autenticación, logging y despliegue a tu proveedor favorito.
 </div>
 
+## 🧩 Orden de Registro en la API
+
+Al utilizar la API, se recomienda seguir el siguiente **orden lógico de registro** para evitar errores de dependencias entre entidades:
+
+1. 🏢 **Empresas**  
+   - Primero se debe registrar la empresa principal.  
+   - Cada entidad posterior dependerá de esta.
+
+2. 🏬 **Sucursales**  
+   - Registra las sucursales asociadas a la empresa.  
+
+3. 🧱 **Líneas de Artículos**  
+   - Define las líneas generales a las que pertenecerán los artículos.
+
+4. 🗂️ **Grupos de Artículos**  
+   - Crea los grupos dentro de cada línea de artículos.
+
+5. 📦 **Artículos**  
+   - Registra los productos o servicios específicos.  
+   - Cada artículo debe estar asociado a una línea y un grupo.
+
+6. 💰 **Listas de Precios**  
+   - Crea las listas que definirán los diferentes precios por tipo de cliente o canal de venta.
+
+7. 🏷️ **Precios de Artículos**  
+   - Asocia precios concretos a los artículos dentro de cada lista de precios.
+
+8. 🔗 **Combinaciones**  
+   - Define combinaciones de artículos o reglas especiales de agrupamiento.
+
+9. ⚙️ **Reglas de Precio**  
+   - Por último, registra las reglas que afectan los precios (descuentos, promociones, condiciones, etc.).
+
+---
+
+> ✅ **Nota:** Seguir este orden garantiza la correcta integridad de los datos y evita errores al momento de crear relaciones entre entidades.
+
+
